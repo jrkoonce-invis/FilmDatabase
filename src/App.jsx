@@ -4,8 +4,8 @@ import { BrowserRouter, Routes, Route, Link, useNavigate, useParams } from 'reac
 import { createClient } from '@supabase/supabase-js';
 
 // --- SET THESE TO YOUR SUPABASE PROJECT ---
-const SUPABASE_URL = '`SUPABASE_URL';
-const SUPABASE_ANON_KEY = 'SUPABASE_ANON_KEY`';
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 function SitePasswordGate({ onUnlock }) {
