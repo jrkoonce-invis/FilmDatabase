@@ -127,11 +127,11 @@ function MovieListByFolder() {
 
   useEffect(() => {
     setLoading(true);
-    supabase
+      supabase
       .from('movies')
       .select('*')
       .eq('folder', folder)
-      .order('created_at', { ascending: false })
+      .order('date', { ascending: false }) // Most recent first
       .then(({ data, error }) => {
         setMovies(data || []);
         setLoading(false);
