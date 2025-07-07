@@ -3,97 +3,12 @@ import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Link, useNavigate, useParams } from 'react-router-dom';
 import { createClient } from '@supabase/supabase-js';
 
-// --- SET THESE TO YOUR SUPABASE PROJECT ---
+// Use environment variables for security
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-function SitePasswordGate({ onUnlock }) {
-  const [input, setInput] = useState('');
-  const [err, setErr] = useState('');
-  const [loading, setLoading] = useState(false);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setErr('');
-    setLoading(true);
-    const { data, error } = await supabase.rpc('check_site_password', { pwd: input });
-    setLoading(false);
-    if (error) {
-      setErr('Error checking password');
-    } else if (data === true) {
-      localStorage.setItem('siteUnlocked', 'true');
-      onUnlock();
-    } else {
-      setErr('Incorrect password');
-    }
-  };
-
-  return (
-    <div className="site-gate">
-      <form className="form" onSubmit={handleSubmit}>
-        <h2>Enter Site Password</h2>
-        {err && <div className="error">{err}</div>}
-        <input
-          type="password"
-          placeholder="Site password"
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          required
-        />
-        <button type="submit" disabled={loading}>{loading ? 'Checking...' : 'Enter'}</button>
-      </form>
-      <style>{`
-        .site-gate {
-          min-height: 100vh;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          background: #f7f7f9;
-        }
-        .form {
-          background: #fff;
-          padding: 1.5rem;
-          border-radius: 12px;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-          max-width: 400px;
-          width: 100%;
-          display: flex;
-          flex-direction: column;
-          gap: 0.8rem;
-          align-items: center;
-        }
-        .form input, .form button {
-          width: 100%;
-          padding: 0.7rem;
-          border-radius: 8px;
-          border: 1px solid #ddd;
-          font-size: 1rem;
-          box-sizing: border-box;
-        }
-        .form button {
-          background: #222;
-          color: #fff;
-          border: none;
-          font-weight: 500;
-          cursor: pointer;
-          transition: background 0.2s;
-        }
-        .form button:hover {
-          background: #444;
-        }
-        .error {
-          color: #e74c3c;
-          font-size: 0.95rem;
-          width: 100%;
-          text-align: center;
-        }
-      `}</style>
-    </div>
-  );
-}
-
-// --- Supabase Auth Hook with isAdmin from user_metadata ---
+// --- Auth Hook: checks app_metadata for admin ---
 function useSupabaseAuth() {
   const [user, setUser] = useState(() => supabase.auth.getUser()?.data?.user ?? null);
 
@@ -114,12 +29,44 @@ function useSupabaseAuth() {
     setUser(null);
   };
 
-  // Check if user is admin via user_metadata
-  const isAdmin = user?.user_metadata?.is_admin === true;
+  // SECURE: Check app_metadata
+  const isAdmin = user?.app_metadata?.is_admin === true;
 
   return { user, login, logout, isAdmin };
 }
 
+// --- Login Form ---
+function Login({ onLogin }) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [err, setErr] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setErr('');
+    setLoading(true);
+    try {
+      await onLogin(email, password);
+    } catch (e) {
+      setErr('Invalid credentials');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <form className="form" onSubmit={handleLogin}>
+      <h2>Login</h2>
+      {err && <div className="error">{err}</div>}
+      <input placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required />
+      <input placeholder="Password" type="password" value={password} onChange={e => setPassword(e.target.value)} required />
+      <button type="submit" disabled={loading}>{loading ? 'Logging in...' : 'Login'}</button>
+    </form>
+  );
+}
+
+// --- Folder Grid ---
 function FolderGrid() {
   const [folders, setFolders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -171,6 +118,7 @@ function FolderGrid() {
   );
 }
 
+// --- Movie List By Folder ---
 function MovieListByFolder() {
   const { folder } = useParams();
   const [movies, setMovies] = useState([]);
@@ -231,38 +179,7 @@ function MovieListByFolder() {
   );
 }
 
-function AdminLogin({ onLogin }) {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [err, setErr] = useState('');
-  const [loading, setLoading] = useState(false);
-  const navigate = useNavigate();
-
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    setErr('');
-    setLoading(true);
-    try {
-      await onLogin(email, password);
-      navigate('/admin');
-    } catch (e) {
-      setErr('Invalid credentials');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <form className="form" onSubmit={handleLogin}>
-      <h2>Admin Login</h2>
-      {err && <div className="error">{err}</div>}
-      <input placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required />
-      <input placeholder="Password" type="password" value={password} onChange={e => setPassword(e.target.value)} required />
-      <button type="submit" disabled={loading}>{loading ? 'Logging in...' : 'Login'}</button>
-    </form>
-  );
-}
-
+// --- Admin Dashboard ---
 function Admin({ user, logout }) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -385,47 +302,98 @@ function Admin({ user, logout }) {
 
 function App() {
   const { user, login, logout, isAdmin } = useSupabaseAuth();
-  const [siteUnlocked, setSiteUnlocked] = useState(() => localStorage.getItem('siteUnlocked') === 'true');
 
+  // If not logged in, show login form only
+  if (!user) {
+    return (
+      <div>
+        <nav className="navbar">
+          <div className="nav-left">
+            <span className="nav-title">Jameson's Movie Database 🍿</span>
+          </div>
+        </nav>
+        <div className="container">
+          <Login onLogin={login} />
+        </div>
+        <style>{`
+          * { font-family: 'Inter', sans-serif; }
+          body { font-family: 'Inter', sans-serif; background: #f7f7f9; margin: 0; }
+          .navbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #fff;
+            padding: 1rem 2rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+          }
+          .nav-title {
+            font-weight: bold;
+            font-size: 1.3rem;
+            color: #222;
+            text-decoration: none;
+          }
+          .container {
+            max-width: 900px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+          }
+          .form {
+            background: #fff;
+            padding: 1.5rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+            max-width: 400px;
+            margin: 2rem auto;
+            display: flex;
+            flex-direction: column;
+            gap: 0.8rem;
+          }
+          .form input, .form button {
+            padding: 0.7rem;
+            border-radius: 6px;
+            border: 1px solid #ddd;
+            font-size: 1rem;
+          }
+          .form button {
+            background: #222;
+            color: #fff;
+            border: none;
+            font-weight: 500;
+            cursor: pointer;
+          }
+          .form button:hover {
+            background: #444;
+          }
+          .error {
+            color: #e74c3c;
+            font-size: 0.95rem;
+          }
+        `}</style>
+      </div>
+    );
+  }
+
+  // If logged in, show the app
   return (
     <BrowserRouter>
-      {!siteUnlocked ? (
-        <SitePasswordGate onUnlock={() => setSiteUnlocked(true)} />
-      ) : (
-        <>
-          <nav className="navbar">
-            <div className="nav-left">
-              <Link className="nav-title" to="/">James' Movie Database 🍿</Link>
-            </div>
-            <div className="nav-right">
-              <Link to="/">Home</Link>
-              {isAdmin ? (
-                <>
-                  <Link to="/admin">Admin</Link>
-                  <button className="logout-btn" onClick={logout}>Logout</button>
-                </>
-              ) : (
-                <Link to="/admin-login">Admin</Link>
-              )}
-            </div>
-          </nav>
-          <Routes>
-            <Route path="/" element={<FolderGrid />} />
-            <Route path="/folder/:folder" element={<MovieListByFolder />} />
-            <Route path="/admin-login" element={<AdminLogin onLogin={login} />} />
-            {isAdmin && <Route path="/admin" element={<Admin user={user} logout={logout} />} />}
-          </Routes>
-        </>
-      )}
+      <nav className="navbar">
+        <div className="nav-left">
+          <Link className="nav-title" to="/">Jameson's Movie Database 🍿</Link>
+        </div>
+        <div className="nav-right">
+          <Link to="/">Home</Link>
+          {isAdmin && <Link to="/admin">Admin</Link>}
+          <button className="logout-btn" onClick={logout}>Logout</button>
+        </div>
+      </nav>
+      <Routes>
+        <Route path="/" element={<FolderGrid />} />
+        <Route path="/folder/:folder" element={<MovieListByFolder />} />
+        {isAdmin && <Route path="/admin" element={<Admin user={user} logout={logout} />} />}
+      </Routes>
       <style>{`
-        * {
-          font-family: 'Inter', sans-serif;
-        }
-        body {
-          font-family: 'Inter', sans-serif;
-          background: #f7f7f9;
-          margin: 0;
-        }
+        * { font-family: 'Inter', sans-serif; }
+        body { font-family: 'Inter', sans-serif; background: #f7f7f9; margin: 0; }
         .navbar {
           display: flex;
           justify-content: space-between;
